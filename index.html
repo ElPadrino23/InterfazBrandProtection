@@ -50,41 +50,99 @@
   </div>
 
   <script>
-    // Placeholder: cuando exista el backend, la validacion real de la
+    // Placeholder: cuando exista un backend real, la validacion de la
     // contraseña debe pasar por el servidor, no quedarse aqui en el HTML.
+    // Mientras Radar_Comercial sea publico, evitar conectar datos reales sensibles.
     const PASSWORD_TEMPORAL = "cambiar-esto";
+
+    // Este HTML vive en un repo separado (InterfazBrandProtection). Los
+    // resultados los genera y publica el scraper en el repo Radar_Comercial
+    // (results/latest.csv en la rama main), asi que se leen via raw.githubusercontent.com.
+    const URL_RESULTADOS = "https://raw.githubusercontent.com/ElPadrino23/Radar_Comercial/main/results/latest.csv";
 
     function verificarAcceso() {
       const valor = document.getElementById('password').value;
       if (valor === PASSWORD_TEMPORAL) {
         document.getElementById('login-box').style.display = 'none';
         document.getElementById('contenido').style.display = 'block';
-        cargarDatosEjemplo();
+        cargarDatos();
       } else {
         document.getElementById('login-error').innerText = 'Contraseña incorrecta';
       }
     }
 
-    // Datos de ejemplo. Cuando este el backend, esto se reemplaza por un
-    // fetch() a la API o al CSV real generado por el scraper.
-    function cargarDatosEjemplo() {
-      const datos = [
-        { enlace: "https://facebook.com/marketplace/item/1", perfil: "Pintura Comex barata", fecha: "No detectada", lugar: "Poza Rica, Ver" },
-        { enlace: "https://facebook.com/marketplace/item/2", perfil: "PPG exterior remate", fecha: "No detectada", lugar: "CDMX" }
-      ];
+    function parseCSV(texto) {
+      const filas = [];
+      let fila = [];
+      let campo = "";
+      let dentroComillas = false;
 
-      const cuerpo = document.getElementById('tabla-body');
-      cuerpo.innerHTML = "";
+      for (let i = 0; i < texto.length; i++) {
+        const c = texto[i];
 
-      datos.forEach(function (fila) {
-        const tr = document.createElement('tr');
-        tr.innerHTML =
-          "<td><a href='" + fila.enlace + "' target='_blank'>" + fila.enlace + "</a></td>" +
-          "<td>" + fila.perfil + "</td>" +
-          "<td>" + fila.fecha + "</td>" +
-          "<td>" + fila.lugar + "</td>";
-        cuerpo.appendChild(tr);
-      });
+        if (dentroComillas) {
+          if (c === '"') {
+            if (texto[i + 1] === '"') { campo += '"'; i++; }
+            else { dentroComillas = false; }
+          } else {
+            campo += c;
+          }
+        } else {
+          if (c === '"') {
+            dentroComillas = true;
+          } else if (c === ',') {
+            fila.push(campo);
+            campo = "";
+          } else if (c === '\n' || c === '\r') {
+            if (c === '\r' && texto[i + 1] === '\n') i++;
+            fila.push(campo);
+            filas.push(fila);
+            fila = [];
+            campo = "";
+          } else {
+            campo += c;
+          }
+        }
+      }
+
+      if (campo.length > 0 || fila.length > 0) {
+        fila.push(campo);
+        filas.push(fila);
+      }
+
+      return filas;
+    }
+
+    // Lee los resultados reales publicados por el workflow semanal de Radar_Comercial.
+    function cargarDatos() {
+      fetch(URL_RESULTADOS)
+        .then(function (resp) { return resp.text(); })
+        .then(function (texto) {
+          const filas = parseCSV(texto);
+          const registros = filas.slice(1).filter(function (f) { return f.length > 1; });
+
+          const cuerpo = document.getElementById('tabla-body');
+          cuerpo.innerHTML = "";
+
+          registros.forEach(function (campos) {
+            const enlace = campos[0];
+            const perfil = campos[1];
+            const fecha = campos[2];
+            const lugar = campos[3];
+
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+              "<td><a href='" + enlace + "' target='_blank'>" + enlace + "</a></td>" +
+              "<td>" + perfil + "</td>" +
+              "<td>" + fecha + "</td>" +
+              "<td>" + lugar + "</td>";
+            cuerpo.appendChild(tr);
+          });
+        })
+        .catch(function (err) {
+          document.getElementById('tabla-body').innerHTML =
+            "<tr><td colspan='4'>No se pudieron cargar los resultados (" + err + ")</td></tr>";
+        });
     }
 
     function filtrarTabla() {
@@ -94,6 +152,8 @@
 
       for (let i = 0; i < filas.length; i++) {
         const celdas = filas[i].getElementsByTagName('td');
+        if (celdas.length < 4) continue;
+
         const perfil = celdas[1].innerText.toLowerCase();
         const lugarCelda = celdas[3].innerText.toLowerCase();
 
@@ -111,6 +171,8 @@
       for (let i = 0; i < filas.length; i++) {
         if (filas[i].style.display === "none") continue;
         const celdas = filas[i].getElementsByTagName('td');
+        if (celdas.length < 4) continue;
+
         const enlace = celdas[0].innerText;
         const perfil = celdas[1].innerText.replace(/,/g, ";");
         const fecha = celdas[2].innerText;
