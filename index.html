@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Radar Comercial - PPG</title>
+</head>
+<body>
+
+  <h1>Radar Comercial - PPG</h1>
+  <p>Detecciones de venta no autorizada en Facebook Marketplace</p>
+
+  <hr>
+
+  <h2>Acceso</h2>
+  <div id="login-box">
+    <label for="password">Contraseña del SOC:</label>
+    <input type="password" id="password" name="password">
+    <button onclick="verificarAcceso()">Entrar</button>
+    <p id="login-error"></p>
+  </div>
+
+  <div id="contenido" style="display:none">
+
+    <h2>Filtros</h2>
+    <p>
+      <label for="filtro-lugar">Lugar:</label>
+      <input type="text" id="filtro-lugar" onkeyup="filtrarTabla()">
+
+      <label for="filtro-texto">Texto:</label>
+      <input type="text" id="filtro-texto" onkeyup="filtrarTabla()">
+    </p>
+
+    <h2>Resultados</h2>
+    <table id="tabla-resultados" border="1">
+      <thead>
+        <tr>
+          <th>Enlace</th>
+          <th>Nombre del perfil</th>
+          <th>Fecha de publicacion</th>
+          <th>Lugar</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-body">
+        <!-- Las filas se llenan con JS -->
+      </tbody>
+    </table>
+
+    <p><button onclick="descargarCSV()">Descargar CSV</button></p>
+
+  </div>
+
+  <script>
+    // Placeholder: cuando exista el backend, la validacion real de la
+    // contraseña debe pasar por el servidor, no quedarse aqui en el HTML.
+    const PASSWORD_TEMPORAL = "cambiar-esto";
+
+    function verificarAcceso() {
+      const valor = document.getElementById('password').value;
+      if (valor === PASSWORD_TEMPORAL) {
+        document.getElementById('login-box').style.display = 'none';
+        document.getElementById('contenido').style.display = 'block';
+        cargarDatosEjemplo();
+      } else {
+        document.getElementById('login-error').innerText = 'Contraseña incorrecta';
+      }
+    }
+
+    // Datos de ejemplo. Cuando este el backend, esto se reemplaza por un
+    // fetch() a la API o al CSV real generado por el scraper.
+    function cargarDatosEjemplo() {
+      const datos = [
+        { enlace: "https://facebook.com/marketplace/item/1", perfil: "Pintura Comex barata", fecha: "No detectada", lugar: "Poza Rica, Ver" },
+        { enlace: "https://facebook.com/marketplace/item/2", perfil: "PPG exterior remate", fecha: "No detectada", lugar: "CDMX" }
+      ];
+
+      const cuerpo = document.getElementById('tabla-body');
+      cuerpo.innerHTML = "";
+
+      datos.forEach(function (fila) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          "<td><a href='" + fila.enlace + "' target='_blank'>" + fila.enlace + "</a></td>" +
+          "<td>" + fila.perfil + "</td>" +
+          "<td>" + fila.fecha + "</td>" +
+          "<td>" + fila.lugar + "</td>";
+        cuerpo.appendChild(tr);
+      });
+    }
+
+    function filtrarTabla() {
+      const lugar = document.getElementById('filtro-lugar').value.toLowerCase();
+      const texto = document.getElementById('filtro-texto').value.toLowerCase();
+      const filas = document.getElementById('tabla-body').getElementsByTagName('tr');
+
+      for (let i = 0; i < filas.length; i++) {
+        const celdas = filas[i].getElementsByTagName('td');
+        const perfil = celdas[1].innerText.toLowerCase();
+        const lugarCelda = celdas[3].innerText.toLowerCase();
+
+        const coincideLugar = lugarCelda.includes(lugar);
+        const coincideTexto = perfil.includes(texto);
+
+        filas[i].style.display = (coincideLugar && coincideTexto) ? "" : "none";
+      }
+    }
+
+    function descargarCSV() {
+      let csv = "Enlace,Nombre del perfil,Fecha de publicacion,Lugar\n";
+      const filas = document.getElementById('tabla-body').getElementsByTagName('tr');
+
+      for (let i = 0; i < filas.length; i++) {
+        if (filas[i].style.display === "none") continue;
+        const celdas = filas[i].getElementsByTagName('td');
+        const enlace = celdas[0].innerText;
+        const perfil = celdas[1].innerText.replace(/,/g, ";");
+        const fecha = celdas[2].innerText;
+        const lugar = celdas[3].innerText.replace(/,/g, ";");
+        csv += enlace + "," + perfil + "," + fecha + "," + lugar + "\n";
+      }
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "detecciones_filtradas.csv";
+      link.click();
+    }
+  </script>
+
+</body>
+</html>
